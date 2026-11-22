@@ -5,7 +5,7 @@ const MAX_KEY = (1n << 256n) - 1n;
 const PAGE_SIZE = 50n;
 const MAX_PAGE = MAX_KEY / PAGE_SIZE;
 
-// Replace with your Solana donation address and ad network direct link
+// Solana donation address and ad network direct link
 const DONATE_ADDRESS = '7ALEjJAikbPcRcTRT6722UEa18tHLf5cnz72SABy5NUg';
 const SPONSOR_AD_URL = 'https://a-ads.com';
 
@@ -42,10 +42,14 @@ export default function App() {
   const [brainResult, setBrainResult] = useState(null);
   const [brainStatus, setBrainStatus] = useState('');
 
-  // Wallet & Key Check state
+  // Wallet & Key Check state + metered ad credits (3 free checks, then +10 per ad view)
   const [walletQuery, setWalletQuery] = useState('');
   const [walletCheckResult, setWalletCheckResult] = useState(null);
   const [walletCheckStatus, setWalletCheckStatus] = useState('');
+  const [auditCredits, setAuditCredits] = useState(() => {
+    const saved = localStorage.getItem('sk_audit_credits');
+    return saved !== null ? Number(saved) : 3;
+  });
 
   // Weak keys directory state
   const [weakDirectory, setWeakDirectory] = useState([]);
@@ -213,6 +217,14 @@ export default function App() {
     e.preventDefault();
     const input = walletQuery.trim();
     if (!input || !workerRef.current) return;
+
+    if (auditCredits <= 0) {
+      setWalletCheckStatus(
+        'Free audit limit reached. Click "Unlock +10 Audits (Watch Sponsor Ad)" below to continue.'
+      );
+      return;
+    }
+
     setWalletCheckStatus('Inspecting address / key entropy...');
 
     const isPublicAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(input);
@@ -252,6 +264,16 @@ export default function App() {
       weakRecord: weakRes?.data || null,
     });
     setWalletCheckStatus('');
+
+    const nextCredits = Math.max(0, auditCredits - 1);
+    setAuditCredits(nextCredits);
+    localStorage.setItem('sk_audit_credits', String(nextCredits));
+  };
+
+  const handleUnlockAudits = () => {
+    setAuditCredits(10);
+    localStorage.setItem('sk_audit_credits', '10');
+    setWalletCheckStatus('10 additional wallet audits unlocked!');
   };
 
   const handleTestBrainwallet = async (e) => {
@@ -338,7 +360,7 @@ export default function App() {
 
   return (
     <>
-      <div className="promo-bar">
+      <div className="promo-bar" style={{ marginTop: 64 }}>
         <span className="promo-badge">SOLANAKEYS.SPACE</span>
         <span>
           Open-source 2²⁵⁶ Ed25519 keyspace visualizer &amp; entropy checker •
@@ -428,9 +450,10 @@ export default function App() {
               href={SPONSOR_AD_URL}
               target="_blank"
               rel="noreferrer"
-              title="Support free Helius RPC scans by viewing a sponsor"
+              onClick={handleUnlockAudits}
+              title="Support free Helius RPC scans and unlock +10 wallet audits"
             >
-              ▶ Watch Ad (Support RPC)
+              ▶ Watch Ad (+10 Audits)
             </a>
           </div>
 
@@ -453,35 +476,6 @@ export default function App() {
               </div>
             </div>
           )}
-
-          {/* Ad Network Banner Slot (728x90 / Responsive for A-Ads, Coinzilla, or Bitmedia) */}
-          <div
-            id="ad-banner-slot"
-            style={{
-              marginTop: 14,
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: '1px dashed rgba(255,255,255,0.14)',
-              background: 'rgba(255,255,255,0.02)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 10,
-              fontSize: '0.82rem',
-              color: 'var(--muted)',
-            }}
-          >
-            <span>
-              <strong style={{ color: '#fff' }}>SPONSORED:</strong> Keep 2²⁵⁶
-              RPC balance checks free —{' '}
-              <a href={SPONSOR_AD_URL} target="_blank" rel="noreferrer">
-                view partner offer
-              </a>{' '}
-              or paste your A-Ads / Bitmedia iframe tag inside{' '}
-              <code>#ad-banner-slot</code>.
-            </span>
-          </div>
         </header>
 
         <section className="stats-grid">
@@ -748,7 +742,7 @@ export default function App() {
               Paste any Solana public address to check against known compromised
               keys, or paste a 64-char hex seed / Base58 secret key (processed
               100% locally in your browser) to find its exact page in the 2²⁵⁶
-              keyspace.
+              keyspace. <strong>Remaining free audits: {auditCredits}</strong>
             </p>
 
             <form className="jump-group" onSubmit={handleWalletCheck}>
@@ -761,9 +755,23 @@ export default function App() {
                 placeholder="Solana address, 64-char hex seed, or Base58 secret key"
               />
               <button className="btn btn-primary" type="submit">
-                Check Wallet
+                Check Wallet ({auditCredits} left)
               </button>
             </form>
+
+            {auditCredits <= 0 && (
+              <div style={{ marginTop: 12 }}>
+                <a
+                  className="btn btn-primary"
+                  href={SPONSOR_AD_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={handleUnlockAudits}
+                >
+                  ▶ Unlock +10 Audits (Watch Sponsor Ad)
+                </a>
+              </div>
+            )}
 
             {walletCheckStatus && (
               <p
